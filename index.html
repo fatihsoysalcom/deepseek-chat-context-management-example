@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepSeek Chat Context Management</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 20px auto; background-color: #f4f7f6; color: #333; }
+        #chat-container { border: 1px solid #ddd; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; height: 600px; background-color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        #chat-display { flex-grow: 1; padding: 15px; overflow-y: auto; background-color: #eef2f1; border-bottom: 1px solid #eee; }
+        .message { margin-bottom: 10px; padding: 8px 12px; border-radius: 15px; max-width: 70%; word-wrap: break-word; }
+        .user-message { background-color: #007bff; color: white; align-self: flex-end; margin-left: auto; border-bottom-right-radius: 2px; }
+        .ai-message { background-color: #e2e6ea; color: #333; align-self: flex-start; margin-right: auto; border-bottom-left-radius: 2px; }
+        #input-area { display: flex; padding: 15px; border-top: 1px solid #eee; background-color: #f9fbfb; }
+        #user-input { flex-grow: 1; padding: 10px; border: 1px solid #ccc; border-radius: 20px; margin-right: 10px; font-size: 1rem; }
+        #send-button { padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 20px; cursor: pointer; font-size: 1rem; transition: background-color 0.2s ease; }
+        #send-button:hover { background-color: #218838; }
+        #reset-button { margin-left: 10px; padding: 10px 15px; background-color: #dc3545; color: white; border: none; border-radius: 20px; cursor: pointer; font-size: 0.9rem; transition: background-color 0.2s ease; }
+        #reset-button:hover { background-color: #c82333; }
+        .system-message { text-align: center; font-style: italic; color: #6c757d; margin-top: 10px; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <h1>DeepSeek Chat Context Management Example</h1>
+    <p>This example demonstrates how to manage conversation context in a chat application, especially when an AI service might impose limits. After a few turns, the simulated AI will indicate a "limit reached," but the conversation context is preserved to allow seamless continuation.</p>
+
+    <div id="chat-container">
+        <div id="chat-display"></div>
+        <div id="input-area">
+            <input type="text" id="user-input" placeholder="Type your message...">
+            <button id="send-button">Send</button>
+            <button id="reset-button">Reset Chat</button>
+        </div>
+    </div>
+
+    <script>
+        const chatDisplay = document.getElementById('chat-display');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const resetButton = document.getElementById('reset-button');
+
+        // --- Core concept: Conversation context storage ---
+        // This array stores the entire conversation history, acting as the context.
+        // Each object represents a message with its role (user/assistant) and content.
+        let chatHistory = [];
+        const MAX_CONVERSATION_TURNS = 3; // Simulate a limit after 3 user-AI turns
+        let currentTurn = 0;
+        let limitReached = false;
+
+        function displayMessage(role, content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+            messageDiv.classList.add(role === 'user' ? 'user-message' : 'ai-message');
+            messageDiv.textContent = content;
+            chatDisplay.appendChild(messageDiv);
+            chatDisplay.scrollTop = chatDisplay.scrollHeight; // Scroll to bottom
+        }
+
+        function displaySystemMessage(content) {
+            const systemDiv = document.createElement('div');
+            systemDiv.classList.add('system-message');
+            systemDiv.textContent = content;
+            chatDisplay.appendChild(systemDiv);
+            chatDisplay.scrollTop = chatDisplay.scrollHeight;
+        }
+
+        async function simulateAIResponse(context) {
+            currentTurn++;
+            if (currentTurn > MAX_CONVERSATION_TURNS && !limitReached) {
+                limitReached = true;
+                // --- Article concept: Handling limits ---
+                // When the simulated limit is hit, inform the user.
+                // The key is that `chatHistory` (the context) is NOT cleared.
+                return "DeepSeek Web Chat: Limit reached for this session. To continue, your next message will resend the full conversation context.";
+            } else if (limitReached) {
+                // --- Article concept: Seamless continuation by re-sending context ---
+                // If limit was reached, and user sends another message,
+                // we simulate sending the *entire* `context` (chatHistory) to the AI.
+                // The AI then "re-initializes" with the full context.
+                displaySystemMessage("Re-sending full conversation context to AI for seamless continuation...");
+                limitReached = false; // Reset limit flag for new "session" after context resend
+                currentTurn = 1; // Reset turn count for the new "session" initiated by context resend
+                // For demonstration, we'll just acknowledge the context.
+                // In a real scenario, the AI would process the full context to generate a response.
+                const lastUserMessage = context[context.length - 1]?.content || "Hello";
+                return `(Context re-established) Understood: "${lastUserMessage}". How can I help further?`;
+            }
+
+            // Simulate a delay for AI processing
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Simple AI response based on the last user message in the context
+            const lastUserMessage = context[context.length - 1]?.content;
+            if (lastUserMessage) {
+                if (lastUserMessage.toLowerCase().includes("hello") || lastUserMessage.toLowerCase().includes("hi")) {
+                    return "Hello there! How can I assist you today?";
+                } else if (lastUserMessage.toLowerCase().includes("how are you")) {
+                    return "I'm just a program, but I'm functioning perfectly! How about you?";
+                } else if (lastUserMessage.toLowerCase().includes("deepseek")) {
+                    return "DeepSeek is a powerful AI model. What would you like to know about it?";
+                } else {
+                    return `You said: "${lastUserMessage}". I can help with that.`;
+                }
+            }
+            return "Please tell me more.";
+        }
+
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (message === '') return;
+
+            displayMessage('user', message);
+            // Add user message to chat history
+            chatHistory.push({ role: 'user', content: message });
+            userInput.value = ''; // Clear input
+
+            // --- Core concept: Sending context to AI ---
+            // The `simulateAIResponse` function receives the current `chatHistory` as context.
+            const aiResponse = await simulateAIResponse(chatHistory);
+
+            displayMessage('assistant', aiResponse);
+            // Add AI response to chat history
+            chatHistory.push({ role: 'assistant', content: aiResponse });
+        }
+
+        function resetChat() {
+            chatHistory = []; // Clear context
+            currentTurn = 0;
+            limitReached = false;
+            chatDisplay.innerHTML = ''; // Clear display
+            displaySystemMessage("Chat has been reset. Start a new conversation!");
+        }
+
+        sendButton.addEventListener('click', sendMessage);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        resetButton.addEventListener('click', resetChat);
+
+        // Initial welcome message
+        displaySystemMessage("Welcome to the DeepSeek Chat Simulator! Chat freely, but watch out for the simulated limit.");
+    </script>
+</body>
+</html>
